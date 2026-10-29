@@ -7,6 +7,7 @@ from ipwhois import IPWhois
 import pandas as pd
 from socket import gaierror
 import numpy as np
+from donnees_arcep import get_indicateurs_marche, get_usage_plateformes, get_qos_arcep
 
 # --- MISE À JOUR : Génération de données estimées pour le graphique ---
 def prepare_full_domain_timeseries():
@@ -135,7 +136,10 @@ def get_all_bj_data(for_db=False):
             "Site web du registre": "http://www.nic.bj",
             "Serveur WHOIS": "whois.nic.bj"
         },
-        "policy_data": {"Restrictions": "Un contact administratif au Bénin est requis.", "Présence locale requise": "Non", "Domaines de second niveau": ".com.bj"}
+        "policy_data": {"Restrictions": "Un contact administratif au Bénin est requis.", "Présence locale requise": "Non", "Domaines de second niveau": ".com.bj"},
+        "indicateurs_marche_df": get_indicateurs_marche(),
+        "usage_plateformes_df": get_usage_plateformes(),
+        "qos_df": get_qos_arcep()
     }
 
     if for_db:

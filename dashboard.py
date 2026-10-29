@@ -35,7 +35,7 @@ with st.sidebar:
     st.markdown("---")
     st.header("📚 Sources des Données")
     st.info("Ce dashboard agrège des données issues des rapports annuels de l'ARCEP BENIN et d'analyses en temps réel.")
-    st.markdown("- **Rapports Annuels ARCEP**\n- **[IANA](https://www.iana.org/domains/root/db/bj.html)** : Informations sur la délégation et les serveurs de noms.**\n- **[DomainNameStat](https://domainnamestat.com/statistics/tld/bj)** : Estimation du nombre de domaines.**\n- **[TLD-List](https://tld-list.com/tld/bj)** : Politiques et informations sur le registre DNS.**")
+    st.markdown("- **Rapports Annuels ARCEP**\n- **[IANA](https://www.iana.org/domains/root/db/bj.html)** : Informations sur la délégation et les serveurs de noms.**\n- **[DomainNameStat](https://domainnamestat.com/statistics/tld/bj)** : Estimation du nombre de domaines.**\n- **[TLD-List](https://tld-list.com/tld/bj)** : Politiques et informations sur le registre DNS.**\n- **[Qualité de service ARCEP](https://arcep.bj/performances-mtn-et-moov/)** : Mesures QoS des opérateurs mobiles.**")
     st.markdown("---")
     st.link_button("Retour au Dashboard Principal", "/URL_VERS_LE_DASHBOARD_PRINCIPAL", type="primary")
     st.markdown("---")
@@ -47,8 +47,9 @@ st.markdown("Analyse de l'infrastructure, des politiques et de l'évolution du d
 def charger_donnees():
     if EN_NAVIGATEUR:
         data = json.loads((Path(__file__).parent / "bj_snapshot.json").read_text(encoding="utf-8"))
-        data['domaines_historique_df'] = pd.DataFrame(data['domaines_historique_df'])
-        data['ns_details_df'] = pd.DataFrame(data['ns_details_df'])
+        for cle in data:
+            if cle.endswith('_df'):
+                data[cle] = pd.DataFrame(data[cle])
         return data
     from collecte_bj_data import get_all_bj_data
     return get_all_bj_data()
@@ -142,3 +143,125 @@ with col_admin_rules:
                 else:
                     st.markdown(f": {value}")
 st.markdown('</div>', unsafe_allow_html=True)
+
+# --- Marché mobile et Internet, qualité de service et fractures numériques (données ARCEP BENIN, voir donnees_arcep.py) ---
+COULEURS_OPERATEURS = alt.Scale(domain=['MTN', 'MOOV', 'CELTIIS'], range=['#ffcc00', '#018cd1', '#3ada74'])
+
+def fmt(nombre, decimales=0):
+    """Formate un nombre à la française : espace pour les milliers, virgule pour les décimales."""
+    return f"{nombre:,.{decimales}f}".replace(",", " ").replace(".", ",")
+
+df_marche = data['indicateurs_marche_df']
+
+def indicateur(nom, annee=2025, operateur="Tous"):
+    return df_marche[(df_marche['indicateur'] == nom) & (df_marche['annee'] == annee) & (df_marche['operateur'] == operateur)].iloc[0]
+
+st.markdown("---")
+st.subheader("📱 Internet, SIM et GSM : le marché en 2025")
+sim, mobile, internet_mobile, fixe = (indicateur(nom) for nom in ["Cartes SIM actives", "Abonnés mobiles", "Abonnés Internet mobile", "Abonnés Internet fixe"])
+penetration_im, penetration_im_2024 = indicateur("Pénétration Internet mobile"), indicateur("Pénétration Internet mobile", 2024)
+cols = st.columns(4)
+cols[0].metric("📶 Cartes SIM actives", f"{fmt(sim['valeur'], 2)} M", f"{fmt(sim['variation_pct'], 1)} % sur un an")
+cols[1].metric("👥 Abonnés mobiles", fmt(mobile['valeur']), f"Pénétration mobile : {fmt(indicateur('Pénétration mobile')['valeur'], 1)} %", delta_color="off", help="Nombre d'abonnés après élimination des multi-SIM.")
+cols[2].metric("🌐 Abonnés Internet mobile", fmt(internet_mobile['valeur']), f"+{fmt(penetration_im['valeur'] - penetration_im_2024['valeur'], 1)} pt : pénétration de {fmt(penetration_im['valeur'], 1)} %")
+cols[3].metric("🏠 Abonnés Internet fixe", fmt(fixe['valeur']), f"+{fmt(fixe['variation_pct'], 1)} % sur un an", help=f"Pénétration Internet fixe : {fmt(indicateur('Pénétration Internet fixe')['valeur'], 2)} %")
+
+trafic, voix, arpu, bande_passante = (indicateur(nom) for nom in ["Trafic Internet mobile", "Trafic voix mobile", "ARPU mobile", "Bande passante internationale"])
+cols = st.columns(4)
+cols[0].metric("📊 Trafic Internet mobile", f"{fmt(trafic['valeur'], 1)} M Go", f"+{fmt(trafic['variation_pct'])} % sur un an")
+cols[1].metric("📞 Trafic voix mobile", f"{fmt(voix['valeur'], 2)} Md min", f"+{fmt(voix['variation_pct'], 1)} % sur un an")
+cols[2].metric("💰 ARPU mobile mensuel", f"{fmt(arpu['valeur'])} FCFA", help="Revenu moyen mensuel par abonné mobile.")
+cols[3].metric("🔗 Bande passante internationale", f"{fmt(bande_passante['valeur'])} Gbps")
+
+col_techno, col_parts = st.columns(2, gap="large")
+with col_techno:
+    st.markdown("**Abonnements Internet mobile par technologie**")
+    df_techno = df_marche[df_marche['indicateur'].str.startswith("Abonnements Internet mobile") & (df_marche['annee'] == 2025)].assign(technologie=lambda d: d['indicateur'].str[-2:])
+    barres = alt.Chart(df_techno).mark_bar(color='#00A9E0').encode(
+        x=alt.X('technologie:N', title=None, axis=alt.Axis(labelAngle=0)),
+        y=alt.Y('valeur:Q', title="% des abonnements"),
+        tooltip=[alt.Tooltip('technologie:N', title='Technologie'), alt.Tooltip('valeur:Q', title='Part (%)')]
+    )
+    etiquettes = barres.mark_text(dy=-8, color='#888888').transform_calculate(etiquette="datum.valeur + ' %'").encode(text='etiquette:N')
+    st.altair_chart(barres + etiquettes, use_container_width=True)
+with col_parts:
+    st.markdown("**Parts de marché en valeur des opérateurs mobiles**")
+    df_parts = df_marche[(df_marche['indicateur'] == "Part de marché (valeur)") & (df_marche['annee'] == 2025)]
+    ordre = df_parts.sort_values('valeur', ascending=False)['operateur'].tolist()  # un tri '-x' serait ignoré dans un graphique à calques
+    barres = alt.Chart(df_parts).mark_bar().encode(
+        x=alt.X('valeur:Q', title="Part de marché en valeur (%)"),
+        y=alt.Y('operateur:N', title=None, sort=ordre),
+        color=alt.Color('operateur:N', scale=COULEURS_OPERATEURS, legend=None),
+        tooltip=[alt.Tooltip('operateur:N', title='Opérateur'), alt.Tooltip('valeur:Q', title='Part (%)')]
+    )
+    etiquettes = alt.Chart(df_parts).mark_text(align='left', dx=4, color='#888888').encode(
+        x='valeur:Q', y=alt.Y('operateur:N', sort=ordre), text=alt.Text('valeur:Q', format='.1f'))
+    st.altair_chart(barres + etiquettes, use_container_width=True)
+st.caption("Source : ARCEP BENIN, Rapport annuel d'activités 2025 (situation au 31 décembre 2025). MTN = SPACETEL BENIN, MOOV = MOOV AFRICA BENIN, CELTIIS = SBIN.")
+
+st.markdown("---")
+st.subheader("📡 Qualité de service des réseaux mobiles")
+df_qos = data['qos_df']
+if df_qos.empty:
+    st.info("Les mesures de qualité de service de l'ARCEP sont momentanément indisponibles.")
+else:
+    col_graphe, col_conformite = st.columns([2, 1], gap="large")
+    with col_graphe:
+        choix = st.selectbox("Indicateur", df_qos['indicateur'].unique())
+        df_choix = df_qos[df_qos['indicateur'] == choix]
+        unite = df_choix['unite'].iloc[0]
+        st.markdown(f"**{choix} ({unite})**, seuil de conformité en pointillés rouges")
+        lignes = alt.Chart(df_choix).mark_line(point=True).encode(
+            x=alt.X('date:O', title=None, axis=alt.Axis(labelAngle=0, labelExpr="substring(datum.value, 8, 10) + '/' + substring(datum.value, 5, 7)")),
+            y=alt.Y('valeur:Q', title=unite, scale=alt.Scale(zero=False)),
+            color=alt.Color('operateur:N', scale=COULEURS_OPERATEURS, title=None, legend=alt.Legend(orient='bottom')),
+            tooltip=[alt.Tooltip('date:O', title='Date'), alt.Tooltip('operateur:N', title='Opérateur'), alt.Tooltip('valeur:Q', title=unite)]
+        )
+        seuil = alt.Chart(df_choix).mark_rule(color='red', strokeDash=[6, 4]).encode(
+            y='mean(seuil):Q', tooltip=alt.Tooltip('mean(seuil):Q', title='Seuil de conformité'))
+        st.altair_chart(lignes + seuil, use_container_width=True)
+    with col_conformite:
+        st.markdown("**Moyenne sur la période et conformité**")
+        moyennes = df_choix.groupby('operateur', as_index=False).agg(moyenne=('valeur', 'mean'), seuil=('seuil', 'mean'))
+        # Le taux de blocage doit rester sous le seuil ; les autres indicateurs doivent l'atteindre.
+        conforme = moyennes['moyenne'] <= moyennes['seuil'] if 'blocage' in choix else moyennes['moyenne'] >= moyennes['seuil']
+        moyennes['conforme'] = conforme.map({True: "✅ Oui", False: "❌ Non"})
+        st.dataframe(moyennes.round(2).rename(columns={'operateur': 'Opérateur', 'moyenne': f'Moyenne ({unite})', 'seuil': f'Seuil ({unite})', 'conforme': 'Conforme'}), hide_index=True, use_container_width=True)
+    debut, fin = (pd.to_datetime(d).strftime('%d/%m/%Y') for d in (df_qos['date'].min(), df_qos['date'].max()))
+    st.caption(f"Source : ARCEP BENIN, suivi de la qualité de service (mesures du {debut} au {fin}).")
+
+st.markdown("---")
+st.subheader("⚖️ Fractures numériques et obstacles à l'accès")
+col_genre, col_analyse = st.columns(2, gap="large")
+with col_genre:
+    st.markdown("**Usage des plateformes numériques selon le genre (2025)**")
+    parts_genre = data['usage_plateformes_df'].pivot_table(index=['operateur', 'plateforme'], columns='genre', values='utilisateurs', aggfunc='sum').reset_index()
+    parts_genre.columns.name = None
+    parts_genre['part_femmes'] = parts_genre['Femme'] / (parts_genre['Femme'] + parts_genre['Homme']) * 100
+    barres = alt.Chart(parts_genre).mark_bar().encode(
+        x=alt.X('part_femmes:Q', title="Part des femmes parmi les utilisateurs (%)", scale=alt.Scale(domain=[0, 100])),
+        y=alt.Y('plateforme:N', title=None, sort=['WhatsApp', 'Facebook', 'TikTok', 'Netflix']),
+        yOffset='operateur:N',
+        color=alt.Color('operateur:N', scale=COULEURS_OPERATEURS, title=None, legend=alt.Legend(orient='bottom')),
+        tooltip=[alt.Tooltip('operateur:N', title='Opérateur'), alt.Tooltip('plateforme:N', title='Plateforme'),
+                 alt.Tooltip('part_femmes:Q', title='Part des femmes (%)', format='.1f'),
+                 alt.Tooltip('Femme:Q', title='Femmes', format=','), alt.Tooltip('Homme:Q', title='Hommes', format=',')]
+    )
+    parite = alt.Chart(pd.DataFrame({'parite': [50]})).mark_rule(color='gray', strokeDash=[4, 4]).encode(x='parite:Q')
+    st.altair_chart(barres + parite, use_container_width=True)
+    st.caption("Source : ARCEP BENIN, rapport annuel 2025 (données des opérateurs). Ligne grise : parité. Données CELTIIS non publiées ; TikTok et Netflix publiés pour MTN uniquement.")
+with col_analyse:
+    st.markdown("##### Qui est laissé pour compte ?")
+    st.markdown(
+        "- **Genre** : taux de possession de smartphones et d'adoption plus faibles chez les femmes.\n"
+        "- **Géographie** : profonde fracture entre villes et campagnes (infrastructures concentrées à Cotonou et Porto-Novo, départements du nord et zones rurales fortement sous-desservis).\n"
+        "- **Éducation et langue** : exclusion liée à un faible niveau d'instruction et à une maîtrise limitée du français et du numérique."
+    )
+    femmes_whatsapp = parts_genre[parts_genre['plateforme'] == 'WhatsApp'].set_index('operateur')['part_femmes']
+    st.info(f"Les données des opérateurs le confirment : les femmes ne représentent que {fmt(femmes_whatsapp['MTN'])} % des utilisateurs de WhatsApp chez MTN et {fmt(femmes_whatsapp['MOOV'])} % chez MOOV.")
+    st.markdown("##### Les 3 principaux obstacles à l'accès")
+    st.markdown(
+        "1. Coût élevé des forfaits de données et des appareils connectés par rapport au revenu médian.\n"
+        "2. Illettrisme numérique et linguistique (manque de contenus localisés).\n"
+        "3. Faible utilité perçue pour les besoins économiques quotidiens, et inquiétudes liées à la sécurité et à la confiance."
+    )

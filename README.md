@@ -15,6 +15,8 @@ Analyser l'Évolution Historique : Un graphique présente la croissance du nombr
 
 Évaluer la Résilience : Le dashboard analyse la répartition géographique des serveurs de noms, un facteur clé de la robustesse du domaine face aux pannes.
 
+Suivre le Marché Mobile et Internet : Cartes SIM actives, abonnés mobiles et Internet, taux de pénétration, trafic et parts de marché (rapport annuel 2025 de l'ARCEP BENIN), qualité de service des réseaux MTN, MOOV et CELTIIS, et fractures numériques (genre, géographie, éducation).
+
 Préparer les Données pour l'Export : Les scripts sont conçus pour formater les informations collectées en vue d'une migration facile vers une base de données PostgreSQL.
 
 ###Technologies Utilisées###
@@ -32,6 +34,8 @@ Géolocalisation IP : ipwhois
 
 ###Structure du Projet
 collecte_bj_data.py : Le script principal contenant les fonctions pour collecter les données depuis des sources publiques (IANA, Rapports ARCEP, etc.) et les préparer pour l'affichage ou l'export.
+
+donnees_arcep.py : Les indicateurs du marché mobile et Internet issus du rapport annuel 2025 de l'ARCEP, et la collecte des mesures de qualité de service publiées sur arcep.bj.
 
 dashboard.py : Le script de l'application web Streamlit qui met en forme et affiche les données collectées.
 
