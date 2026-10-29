@@ -30,11 +30,11 @@ def prepare_full_domain_timeseries():
     df_full.loc[df_full['Année'] == 1996, 'valeur_estimee'] = 50
     
     # Étape 1 : Interpolation linéaire pour combler les vides
-    df_full['valeur_estimee'].interpolate(method='linear', inplace=True)
+    df_full['valeur_estimee'] = df_full['valeur_estimee'].interpolate(method='linear')
 
     # Étape 2 : C'est la ligne clé. On remplit les "trous" de la colonne principale
     # avec les valeurs que nous venons d'estimer.
-    df_full['Nombre de domaines .bj'].fillna(df_full['valeur_estimee'], inplace=True)
+    df_full['Nombre de domaines .bj'] = df_full['Nombre de domaines .bj'].fillna(df_full['valeur_estimee'])
     
     # Étape 3 : Maintenant qu'il n'y a plus de "trous", on peut convertir en entier sans erreur.
     df_full['Nombre de domaines .bj'] = df_full['Nombre de domaines .bj'].astype(int)
@@ -117,6 +117,7 @@ def get_all_bj_data(for_db=False):
     ipv6_percent = (ipv6_total / ns_total * 100) if ns_total > 0 else 0
     
     data = {
+        "date_collecte": pd.Timestamp.now(tz='Africa/Porto-Novo').strftime('%d/%m/%Y %H:%M:%S'),
         "nb_domaines_live_data": nb_domaines_live,
         "domaines_historique_df": df_historique_full,
         "dnssec_status": dnssec,
