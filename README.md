@@ -39,6 +39,12 @@ schema_postgresql.txt : Le fichier contenant le schéma SQL pour créer les tabl
 
 requirements.txt : La liste des dépendances Python nécessaires pour exécuter le projet.
 
+build_pages.py : Génère la version GitHub Pages du dashboard dans le dossier _site/ (collecte des données et instantané bj_snapshot.json).
+
+web/index.html : La page qui exécute le dashboard dans le navigateur avec stlite (version GitHub Pages).
+
+.github/workflows/pages.yml : Le workflow GitHub Actions qui publie le dashboard sur GitHub Pages.
+
 ###Installation et Lancement
 Clonez le dépôt
 
@@ -67,6 +73,20 @@ pip install -r requirements.txt
 python -m streamlit run dashboard.py
 
 L'application s'ouvrira automatiquement dans votre navigateur.
+
+### Version en ligne (GitHub Pages)
+Le dashboard est publié sur GitHub Pages : https://soyames.github.io/ccTLD-.BJ/
+
+GitHub Pages n'héberge que des fichiers statiques : le dashboard y tourne directement dans le navigateur grâce à [stlite](https://github.com/whitphx/stlite), qui exécute Streamlit en WebAssembly. Un navigateur ne pouvant pas interroger le DNS ni les serveurs WHOIS, le workflow `.github/workflows/pages.yml` collecte les données avec `build_pages.py` à chaque push sur `main` et chaque jour à 06:00 (heure de Porto-Novo), puis publie le site.
+
+Activation (une seule fois) : **Settings → Pages → Build and deployment → Source : GitHub Actions**. GitHub suspend les workflows planifiés après 60 jours sans activité sur le dépôt : relancez-le si besoin depuis l'onglet **Actions** (bouton *Run workflow*).
+
+Prévisualiser la version GitHub Pages en local, puis ouvrir http://localhost:8000 :
+
+```
+python build_pages.py
+python -m http.server 8000 --directory _site
+```
 
 ###Contribution au Projet BIM'HACK
 Cet outil est une solution pertinente et directement exploitable qui répond aux objectifs du BIM'HACK :

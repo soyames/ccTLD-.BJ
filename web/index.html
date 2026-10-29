@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Dashboard .BJ</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.11.0/build/stlite.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      // Version GitHub Pages du dashboard : Streamlit tourne dans le navigateur grâce à stlite (Pyodide).
+      // dashboard.py et bj_snapshot.json sont copiés à côté de cette page par build_pages.py.
+      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.11.0/build/stlite.js";
+
+      mount(
+        {
+          requirements: ["altair"],
+          entrypoint: "dashboard.py",
+          files: {
+            "dashboard.py": { url: "./dashboard.py" },
+            "bj_snapshot.json": { url: "./bj_snapshot.json" },
+          },
+          streamlitConfig: {
+            "theme.base": "light",
+            "client.toolbarMode": "viewer",
+          },
+        },
+        document.getElementById("root"),
+      );
+    </script>
+  </body>
+</html>

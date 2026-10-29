@@ -1,0 +1,48 @@
+# Publie le dashboard sur GitHub Pages.
+# Le navigateur ne pouvant pas faire de requêtes DNS/WHOIS, les données sont collectées ici
+# (à chaque push sur main et chaque jour) puis affichées par stlite (Streamlit dans le navigateur).
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 5 * * *" # tous les jours à 06:00, heure de Porto-Novo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Installation des dépendances
+        run: pip install -r requirements.txt
+      - name: Collecte des données et génération du site
+        run: python build_pages.py _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

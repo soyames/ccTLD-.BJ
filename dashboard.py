@@ -1,9 +1,15 @@
 # Fichier : dashboard.py 
 
+import json
+import sys
+from pathlib import Path
 import streamlit as st
 import pandas as pd
-from collecte_bj_data import get_all_bj_data
 import altair as alt
+
+# Sur GitHub Pages, le dashboard tourne dans le navigateur (stlite/Pyodide) : les requêtes DNS/WHOIS y sont impossibles,
+# il affiche donc l'instantané des données généré par build_pages.py (GitHub Actions).
+EN_NAVIGATEUR = sys.platform == "emscripten"
 
 st.set_page_config(
     page_title="Dashboard .BJ",
@@ -33,17 +39,26 @@ with st.sidebar:
     st.markdown("---")
     st.link_button("Retour au Dashboard Principal", "/URL_VERS_LE_DASHBOARD_PRINCIPAL", type="primary")
     st.markdown("---")
-    st.success(f"Dernière mise à jour : {pd.Timestamp.now(tz='Africa/Porto-Novo').strftime('%d/%m/%Y %H:%M:%S')}")
 
 st.header("ccTLD .BJ")
 st.markdown("Analyse de l'infrastructure, des politiques et de l'évolution du domaine national du Bénin.")
 
 @st.cache_data(ttl=3600)
 def charger_donnees():
+    if EN_NAVIGATEUR:
+        data = json.loads((Path(__file__).parent / "bj_snapshot.json").read_text(encoding="utf-8"))
+        data['domaines_historique_df'] = pd.DataFrame(data['domaines_historique_df'])
+        data['ns_details_df'] = pd.DataFrame(data['ns_details_df'])
+        return data
+    from collecte_bj_data import get_all_bj_data
     return get_all_bj_data()
 
 with st.spinner('Analyse en cours...'):
     data = charger_donnees()
+
+st.sidebar.success(f"Dernière mise à jour : {data['date_collecte']}")
+if EN_NAVIGATEUR:
+    st.sidebar.caption("Version GitHub Pages : données collectées chaque jour par GitHub Actions.")
 
 st.markdown("### 🔑 Indicateurs Clés")
 cols = st.columns(4)
@@ -71,17 +86,17 @@ with col_chart:
         )
         bars = alt.Chart(df_domaines).mark_bar(opacity=0.8).encode(
             x=alt.X('Année:O', title=None, axis=alt.Axis(labelAngle=0, format='d')),
-            y=alt.Y('Nombre de domaines .bj:Q', title='Nombre de Domaines'),
+            y=alt.Y('Nombre de domaines \\.bj:Q', title='Nombre de Domaines'),
             color=alt.Color('Statut:N', scale=color_scheme, legend=None),
-            tooltip=[alt.Tooltip('Année:O', title='Année'), alt.Tooltip('Tooltip_Info:N', title='Domaines')]
+            tooltip=[alt.Tooltip('Année:O', title='Année'), alt.Tooltip('commentaires:N', title='Domaines')]
         )
         df_official_data = df_domaines[df_domaines['Statut'] == 'Officiel']
         line = alt.Chart(df_official_data).mark_line(
             color='orange', point={'color': 'darkorange', 'size': 80, 'filled': True}
-        ).encode(x=alt.X('Année:O'), y=alt.Y('Nombre de domaines .bj:Q'))
+        ).encode(x=alt.X('Année:O'), y=alt.Y('Nombre de domaines \\.bj:Q'))
         text_labels = alt.Chart(df_official_data).mark_text(
             align='center', baseline='bottom', dy=-8, color='#0A2940', size=12
-        ).encode(x=alt.X('Année:O'), y=alt.Y('Nombre de domaines .bj:Q'), text=alt.Text('Nombre de domaines .bj:Q', format=','))
+        ).encode(x=alt.X('Année:O'), y=alt.Y('Nombre de domaines \\.bj:Q'), text=alt.Text('Nombre de domaines \\.bj:Q', format=','))
         
         chart = (bars + line + text_labels).properties(title='Évolution du Nombre de Domaines .BJ (1996-2025)')
         st.altair_chart(chart, use_container_width=True)
